@@ -56,8 +56,13 @@ class Page extends React.Component {
         <div id="page">
           <div>
             <Map infoLoaded={this.state.infoLoaded} randomLocation={this.state.randomLocation}/>
-            <Buttons gameStarted={this.state.gameStarted} handleStart={this.handleStart} upGiven={this.state.upGiven} handleGiveUp={this.handleGiveUp} handleCountySelect={this.handleCountySelect}/>
-            <Info upGiven={this.state.upGiven} randomLocation={this.state.randomLocation} score={this.state.score} countyGuess={this.state.countyGuess}/>
+            <div id="page-bottom">
+              <div id="buttons-info">
+                <Buttons gameStarted={this.state.gameStarted} handleStart={this.handleStart} upGiven={this.state.upGiven} handleGiveUp={this.handleGiveUp} handleCountySelect={this.handleCountySelect}/>
+                <Info upGiven={this.state.upGiven} randomLocation={this.state.randomLocation} score={this.state.score} countyGuess={this.state.countyGuess}/>
+              </div>
+              <Controls />
+            </div>
           </div>
           <div>
             <img src="./map.jpg" alt="Map of Vermont's counties"></img>
@@ -209,6 +214,20 @@ class Info extends React.Component {
         </div>
       )
     }
+  }
+}
+
+class Controls extends React.Component {
+  render () {
+    return (
+      <div id="controls">
+        <h2 style={{gridArea: "title"}}>Controls:</h2>
+        <button id="up" style={{gridArea: "up"}}>↑</button>
+        <button id="left" style={{gridArea: "left"}}>←</button>
+        <button id="right" style={{gridArea: "right"}}>→</button>
+        <button id="down" style={{gridArea: "down"}}>↓</button>
+      </div>
+    )
   }
 }
 
