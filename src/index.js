@@ -11,7 +11,7 @@ class Page extends React.Component {
     this.state = {
       gameStarted: false,
       infoLoaded: false,
-      randomLocation: findVermontLocation(),
+      randomLocation: null,
       upGiven: false
     }
     this.handleStart = this.handleStart.bind(this);
@@ -19,12 +19,18 @@ class Page extends React.Component {
   }
 
   handleStart () {
-    this.setState({gameStarted: true, upGiven: false})
-    console.log(this.state.randomLocation)
-    fetch(`https://nominatim.openstreetmap.org/reverse.php?format=json&lat=${this.state.randomLocation.lat}&lon=${this.state.randomLocation.lng}`)
-      .then(response => response.json())
-      .then(object => findLocationInfo(object, this.state.randomLocation))
-      .then(this.setState({infoLoaded: true}))
+    this.setState({gameStarted: true, upGiven: false, randomLocation: findVermontLocation(), infoLoaded: false})
+  }
+
+  componentDidUpdate ({ gameStarted }) {
+    if (this.state.infoLoaded===false) {
+      console.log(this.state.randomLocation)
+      console.log(this.state.gameStarted)
+      fetch(`https://nominatim.openstreetmap.org/reverse.php?format=json&lat=${this.state.randomLocation.lat}&lon=${this.state.randomLocation.lng}`)
+        .then(response => response.json())
+        .then(object => findLocationInfo(object, this.state.randomLocation))
+        .then(this.setState({infoLoaded: true}))
+    }
   }
 
   handleGiveUp () {
@@ -76,9 +82,6 @@ class Map extends React.Component {
 
   componentDidUpdate({ infoLoaded }) {
     if (this.props.infoLoaded) {
-      console.log(this.props.randomLocation.lat)
-      //this.map.panTo(new L.LatLng(this.props.randomLocation.lat, this.props.randomLocation.lng));
-      //this.map.setZoom(16);
       this.map.setView(new L.LatLng(this.props.randomLocation.lat, this.props.randomLocation.lng), 18);
     }
   }
