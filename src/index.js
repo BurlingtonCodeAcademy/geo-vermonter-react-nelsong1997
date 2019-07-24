@@ -12,29 +12,49 @@ class Page extends React.Component {
       gameStarted: false,
       infoLoaded: false,
       randomLocation: null,
-      upGiven: false
+      upGiven: false,
+      countyGuess: null,
+      score: 0
     }
     this.handleStart = this.handleStart.bind(this);
     this.handleGiveUp = this.handleGiveUp.bind(this);
+    this.handleCountySelect = this.handleCountySelect.bind(this);
+    this.addToScore = this.addToScore.bind(this)
   }
 
   handleStart () {
     this.setState({gameStarted: true, upGiven: false, randomLocation: findVermontLocation(), infoLoaded: false})
   }
 
-  componentDidUpdate ({ gameStarted }) {
+  componentDidUpdate () {
     if (this.state.infoLoaded===false) {
       console.log(this.state.randomLocation)
-      console.log(this.state.gameStarted)
       fetch(`https://nominatim.openstreetmap.org/reverse.php?format=json&lat=${this.state.randomLocation.lat}&lon=${this.state.randomLocation.lng}`)
         .then(response => response.json())
         .then(object => findLocationInfo(object, this.state.randomLocation))
         .then(this.setState({infoLoaded: true}))
     }
+    if (this.props.countyGuess) {
+      let guessWithCounty = this.props.countyGuess + " County"
+      if (guessWithCounty===this.props.randomLocation.county) {
+        this.addToScore();
+      }
+      console.log(this.state.score)
+    }
   }
 
   handleGiveUp () {
     this.setState({upGiven: true, gameStarted: false})
+  }
+
+  addToScore () {
+    let oldScore = this.state.score;
+    this.setState({score: oldScore + 10})
+  }
+
+  handleCountySelect () {
+    let countySelect = document.getElementById("county-select");
+    this.setState({countyGuess: countySelect.value})
   }
 
   render() {
@@ -44,8 +64,8 @@ class Page extends React.Component {
         <div id="page">
           <div>
             <Map infoLoaded={this.state.infoLoaded} randomLocation={this.state.randomLocation}/>
-            <Buttons gameStarted={this.state.gameStarted} handleStart={this.handleStart} upGiven={this.state.upGiven} handleGiveUp={this.handleGiveUp}/>
-            <Info upGiven={this.state.upGiven} randomLocation={this.state.randomLocation}/>
+            <Buttons gameStarted={this.state.gameStarted} handleStart={this.handleStart} upGiven={this.state.upGiven} handleGiveUp={this.handleGiveUp} handleCountySelect={this.handleCountySelect}/>
+            <Info upGiven={this.state.upGiven} randomLocation={this.state.randomLocation} score={this.state.score} countyGuess={this.state.countyGuess} addToScore={this.addToScore}/>
           </div>
           <div>
             <img src="./map.jpg" alt="Map of Vermont's counties"></img>
@@ -80,7 +100,7 @@ class Map extends React.Component {
     }
   }
 
-  componentDidUpdate({ infoLoaded }) {
+  componentDidUpdate() {
     if (this.props.infoLoaded) {
       this.map.setView(new L.LatLng(this.props.randomLocation.lat, this.props.randomLocation.lng), 18);
     }
@@ -94,13 +114,17 @@ class Map extends React.Component {
 }
 
 class Buttons extends React.Component {
+  showDialog() {
+    let guessDialog = document.getElementById("guess-dialog");
+    guessDialog.showModal();
+  }
+
   render() {
     if (!this.props.gameStarted) {
       return (
         <div id="buttons">
           <button id="start" onClick={this.props.handleStart}>start game</button>
           <button id="give-up" style={{opacity: .5}}>give up!</button>
-          <input></input>
           <button id="guess" style={{opacity: .5}}>guess!</button>
         </div>
       )
@@ -109,8 +133,33 @@ class Buttons extends React.Component {
         <div id="buttons">
           <button id="start" style={{opacity: .5}}>start game</button>
           <button id="give-up" onClick={this.props.handleGiveUp}>give up!</button>
-          <input></input>
-          <button id="guess">guess!</button>
+          <button id="guess" onClick={this.showDialog}>guess!</button>
+          <dialog id="guess-dialog">
+            <form method="dialog">
+              <p><label>Select a county
+                <select id="county-select">
+                  <option>Grand Isle</option>
+                  <option>Chittenden</option>
+                  <option>Franklin</option>
+                  <option>Lamoille</option>
+                  <option>Orleans</option>
+                  <option>Essex</option>
+                  <option>Caledonia</option>
+                  <option>Washington</option>
+                  <option>Addison</option>
+                  <option>Orange</option>
+                  <option>Rutland</option>
+                  <option>Windsor</option>
+                  <option>Bennington</option>
+                  <option>Windham</option>
+                </select>
+              </label></p>
+              <menu>
+                <button value="cancel">Cancel</button>
+                <button id="confirmBtn" value="default" onClick={this.props.handleCountySelect}>OK</button>
+              </menu>
+            </form>
+          </dialog>
         </div>
       )
     }
@@ -119,22 +168,48 @@ class Buttons extends React.Component {
 
 class Info extends React.Component {
   render() {
-    if (!this.props.upGiven) {
-      return (
-        <div id="info">
-          <p>Latitude: ?</p>
-          <p>Longitude: ?</p>
-          <p>County: ?</p>
-          <p>Municipality: ?</p>
-        </div>
-      )
-    } else {
+    if (this.props.upGiven) {
       return (
         <div id="info">
           <p>Latitude: {this.props.randomLocation.lat}</p>
           <p>Longitude: {this.props.randomLocation.lng}</p>
           <p>County: {this.props.randomLocation.county}</p>
           <p>Municipality: {this.props.randomLocation["municipalityName"]}</p>
+        </div>
+      )
+    } else if (this.props.countyGuess) {
+        console.log("guess: " + this.props.countyGuess)
+        let guessWithCounty = this.props.countyGuess + " County"
+        if (guessWithCounty===this.props.randomLocation.county) {
+          return (
+            <div id="info">
+              <p>Latitude: {this.props.randomLocation.lat}</p>
+              <p>Longitude: {this.props.randomLocation.lng}</p>
+              <p>County: {this.props.randomLocation.county}</p>
+              <p>Municipality: {this.props.randomLocation["municipalityName"]}</p>
+              <p>You were correct!</p>
+              <p>Score: {this.props.score}</p>
+            </div>
+          )
+        } else {
+          return (
+            <div id="info">
+              <p>Latitude: {this.props.randomLocation.lat}</p>
+              <p>Longitude: {this.props.randomLocation.lng}</p>
+              <p>County: {this.props.randomLocation.county}</p>
+              <p>Municipality: {this.props.randomLocation["municipalityName"]}</p>
+              <p>You were incorrect :(</p>
+              <p>Score: {this.props.score}</p>
+            </div>
+          )
+        }
+    } else if (!this.props.upGiven){
+      return (
+        <div id="info">
+          <p>Latitude: ?</p>
+          <p>Longitude: ?</p>
+          <p>County: ?</p>
+          <p>Municipality: ?</p>
         </div>
       )
     }
