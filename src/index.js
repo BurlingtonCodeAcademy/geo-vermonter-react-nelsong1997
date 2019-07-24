@@ -19,27 +19,19 @@ class Page extends React.Component {
     this.handleStart = this.handleStart.bind(this);
     this.handleGiveUp = this.handleGiveUp.bind(this);
     this.handleCountySelect = this.handleCountySelect.bind(this);
-    this.addToScore = this.addToScore.bind(this)
   }
 
   handleStart () {
-    this.setState({gameStarted: true, upGiven: false, randomLocation: findVermontLocation(), infoLoaded: false})
+    this.setState({gameStarted: true, upGiven: false, randomLocation: findVermontLocation(), infoLoaded: false, countyGuess: null})
   }
 
-  componentDidUpdate () {
+  componentDidUpdate ({ score }) {
     if (this.state.infoLoaded===false) {
       console.log(this.state.randomLocation)
-      fetch(`https://nominatim.openstreetmap.org/reverse.php?format=json&lat=${this.state.randomLocation.lat}&lon=${this.state.randomLocation.lng}`)
+      fetch(`http://nominatim.openstreetmap.org/reverse.php?format=json&lat=${this.state.randomLocation.lat}&lon=${this.state.randomLocation.lng}`)
         .then(response => response.json())
         .then(object => findLocationInfo(object, this.state.randomLocation))
         .then(this.setState({infoLoaded: true}))
-    }
-    if (this.props.countyGuess) {
-      let guessWithCounty = this.props.countyGuess + " County"
-      if (guessWithCounty===this.props.randomLocation.county) {
-        this.addToScore();
-      }
-      console.log(this.state.score)
     }
   }
 
@@ -47,14 +39,14 @@ class Page extends React.Component {
     this.setState({upGiven: true, gameStarted: false})
   }
 
-  addToScore () {
-    let oldScore = this.state.score;
-    this.setState({score: oldScore + 10})
-  }
-
   handleCountySelect () {
     let countySelect = document.getElementById("county-select");
-    this.setState({countyGuess: countySelect.value})
+    let guessWithCounty = countySelect.value + " County";
+    this.setState({countyGuess: countySelect.value, gameStarted: false})
+    if (guessWithCounty===this.state.randomLocation.county) {
+      let oldScore = this.state.score;
+      this.setState({score: oldScore + 10})
+    }
   }
 
   render() {
@@ -65,7 +57,7 @@ class Page extends React.Component {
           <div>
             <Map infoLoaded={this.state.infoLoaded} randomLocation={this.state.randomLocation}/>
             <Buttons gameStarted={this.state.gameStarted} handleStart={this.handleStart} upGiven={this.state.upGiven} handleGiveUp={this.handleGiveUp} handleCountySelect={this.handleCountySelect}/>
-            <Info upGiven={this.state.upGiven} randomLocation={this.state.randomLocation} score={this.state.score} countyGuess={this.state.countyGuess} addToScore={this.addToScore}/>
+            <Info upGiven={this.state.upGiven} randomLocation={this.state.randomLocation} score={this.state.score} countyGuess={this.state.countyGuess}/>
           </div>
           <div>
             <img src="./map.jpg" alt="Map of Vermont's counties"></img>
@@ -103,6 +95,8 @@ class Map extends React.Component {
   componentDidUpdate() {
     if (this.props.infoLoaded) {
       this.map.setView(new L.LatLng(this.props.randomLocation.lat, this.props.randomLocation.lng), 18);
+      var countyOutlines = L.geoJSON(countyData);
+      this.map.removeLayer(countyOutlines);
     }
   }
 
@@ -138,20 +132,20 @@ class Buttons extends React.Component {
             <form method="dialog">
               <p><label>Select a county
                 <select id="county-select">
-                  <option>Grand Isle</option>
-                  <option>Chittenden</option>
-                  <option>Franklin</option>
-                  <option>Lamoille</option>
-                  <option>Orleans</option>
-                  <option>Essex</option>
-                  <option>Caledonia</option>
-                  <option>Washington</option>
                   <option>Addison</option>
-                  <option>Orange</option>
-                  <option>Rutland</option>
-                  <option>Windsor</option>
                   <option>Bennington</option>
+                  <option>Caledonia</option>
+                  <option>Chittenden</option>
+                  <option>Essex</option>
+                  <option>Franklin</option>
+                  <option>Grand Isle</option>
+                  <option>Lamoille</option>
+                  <option>Orange</option>
+                  <option>Orleans</option>
+                  <option>Rutland</option>
+                  <option>Washington</option>
                   <option>Windham</option>
+                  <option>Windsor</option>
                 </select>
               </label></p>
               <menu>
@@ -175,6 +169,7 @@ class Info extends React.Component {
           <p>Longitude: {this.props.randomLocation.lng}</p>
           <p>County: {this.props.randomLocation.county}</p>
           <p>Municipality: {this.props.randomLocation["municipalityName"]}</p>
+          <p>Score: {this.props.score}</p>
         </div>
       )
     } else if (this.props.countyGuess) {
@@ -203,13 +198,14 @@ class Info extends React.Component {
             </div>
           )
         }
-    } else if (!this.props.upGiven){
+    } else {
       return (
         <div id="info">
           <p>Latitude: ?</p>
           <p>Longitude: ?</p>
           <p>County: ?</p>
           <p>Municipality: ?</p>
+          <p>Score: {this.props.score}</p>
         </div>
       )
     }
