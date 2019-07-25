@@ -14,24 +14,43 @@ class Page extends React.Component {
       randomLocation: null,
       upGiven: false,
       countyGuess: null,
-      score: 0
+      score: 0,
+      mapCurrentCenter: null
     }
     this.handleStart = this.handleStart.bind(this);
     this.handleGiveUp = this.handleGiveUp.bind(this);
     this.handleCountySelect = this.handleCountySelect.bind(this);
+    this.goUp = this.goUp.bind(this);
+    this.goLeft = this.goLeft.bind(this);
+    this.goRight = this.goRight.bind(this);
+    this.goDown = this.goDown.bind(this);
   }
 
   handleStart () {
-    this.setState({gameStarted: true, upGiven: false, randomLocation: findVermontLocation(), infoLoaded: false, countyGuess: null})
+    this.setState({
+      gameStarted: true,
+      upGiven: false,
+      randomLocation: findVermontLocation(),
+      infoLoaded: false,
+      countyGuess: null,
+      mapCurrentCenter: null
+    })
   }
 
-  componentDidUpdate ({ score }) {
-    if (this.state.infoLoaded===false) {
+  componentDidUpdate () {
+    if (!this.state.infoLoaded) {
       console.log(this.state.randomLocation)
       fetch(`http://nominatim.openstreetmap.org/reverse.php?format=json&lat=${this.state.randomLocation.lat}&lon=${this.state.randomLocation.lng}`)
         .then(response => response.json())
         .then(object => findLocationInfo(object, this.state.randomLocation))
         .then(this.setState({infoLoaded: true}))
+    }
+    if (!this.state.mapCurrentCenter && this.state.randomLocation) {
+      let randomLatLong = {
+        lng: this.state.randomLocation.lng,
+        lat: this.state.randomLocation.lat
+      }
+      this.setState({mapCurrentCenter: randomLatLong})
     }
   }
 
@@ -49,19 +68,76 @@ class Page extends React.Component {
     }
   }
 
+  goUp () {
+    let newCenter = {
+      lng: this.state.mapCurrentCenter.lng,
+      lat: this.state.mapCurrentCenter.lat + .001
+    }
+
+    this.setState({mapCurrentCenter: newCenter})
+  }
+
+  goLeft () {
+    let newCenter = {
+      lng: this.state.mapCurrentCenter.lng - .001,
+      lat: this.state.mapCurrentCenter.lat
+    }
+
+    this.setState({mapCurrentCenter: newCenter})
+  }
+
+  goRight () {
+    let newCenter = {
+      lng: this.state.mapCurrentCenter.lng + .001,
+      lat: this.state.mapCurrentCenter.lat
+    }
+
+    this.setState({mapCurrentCenter: newCenter})
+  }
+
+  goDown () {
+    let newCenter = {
+      lng: this.state.mapCurrentCenter.lng,
+      lat: this.state.mapCurrentCenter.lat - .001
+    }
+
+    this.setState({mapCurrentCenter: newCenter})
+  }
+
   render() {
     return (
       <div id="site">
         <h1>Geo Vermonter!</h1>
         <div id="page">
           <div>
-            <Map infoLoaded={this.state.infoLoaded} randomLocation={this.state.randomLocation}/>
+            <Map
+              infoLoaded={this.state.infoLoaded}
+              randomLocation={this.state.randomLocation}
+              mapCurrentCenter={this.state.mapCurrentCenter}
+            />
             <div id="page-bottom">
               <div id="buttons-info">
-                <Buttons gameStarted={this.state.gameStarted} handleStart={this.handleStart} upGiven={this.state.upGiven} handleGiveUp={this.handleGiveUp} handleCountySelect={this.handleCountySelect}/>
-                <Info upGiven={this.state.upGiven} randomLocation={this.state.randomLocation} score={this.state.score} countyGuess={this.state.countyGuess}/>
+                <Buttons
+                  gameStarted={this.state.gameStarted}
+                  handleStart={this.handleStart}
+                  upGiven={this.state.upGiven}
+                  handleGiveUp={this.handleGiveUp}
+                  handleCountySelect={this.handleCountySelect}
+                />
+                <Info
+                  upGiven={this.state.upGiven}
+                  randomLocation={this.state.randomLocation}
+                  score={this.state.score}
+                  countyGuess={this.state.countyGuess}
+                />
               </div>
-              <Controls />
+              <Controls 
+                goUp={this.goUp}
+                goLeft={this.goLeft}
+                goRight={this.goRight}
+                goDown={this.goDown}
+                gameStarted={this.state.gameStarted}
+              />
             </div>
           </div>
           <div>
@@ -99,7 +175,10 @@ class Map extends React.Component {
 
   componentDidUpdate() {
     if (this.props.infoLoaded) {
-      this.map.setView(new L.LatLng(this.props.randomLocation.lat, this.props.randomLocation.lng), 18);
+      console.log(this.props.mapCurrentCenter)
+      this.map.setView(new L.LatLng(this.props.mapCurrentCenter.lat, this.props.mapCurrentCenter.lng), 18);
+      this.marker = L.marker([this.props.randomLocation.lat, this.props.randomLocation.lng]).addTo(this.map)
+
       var countyOutlines = L.geoJSON(countyData);
       this.map.removeLayer(countyOutlines);
     }
@@ -219,15 +298,19 @@ class Info extends React.Component {
 
 class Controls extends React.Component {
   render () {
-    return (
-      <div id="controls">
-        <h2 style={{gridArea: "title"}}>Controls:</h2>
-        <button id="up" style={{gridArea: "up"}}>↑</button>
-        <button id="left" style={{gridArea: "left"}}>←</button>
-        <button id="right" style={{gridArea: "right"}}>→</button>
-        <button id="down" style={{gridArea: "down"}}>↓</button>
-      </div>
-    )
+    if (this.props.gameStarted) {
+      return (
+        <div id="controls">
+          <h2 style={{gridArea: "title"}}>Controls:</h2>
+          <button id="up" onClick={this.props.goUp} style={{gridArea: "up"}}>↑</button>
+          <button id="left" onClick={this.props.goLeft} style={{gridArea: "left"}}>←</button>
+          <button id="right" onClick={this.props.goRight} style={{gridArea: "right"}}>→</button>
+          <button id="down" onClick={this.props.goDown} style={{gridArea: "down"}}>↓</button>
+        </div>
+      )
+    } else {
+      return null;
+    }
   }
 }
 
