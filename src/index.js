@@ -2,7 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom';
 import L from 'leaflet';
 import borderData from './border.js';
-import countyData from './counties.js'
+// import countyData from './counties.js'
 import leafletPip from "@mapbox/leaflet-pip";
 
 class Page extends React.Component {
@@ -14,14 +14,31 @@ class Page extends React.Component {
       randomLocation: null,
       upGiven: false,
       countyGuess: null,
-      score: 0,
-      mapCurrentCenter: null
+      score: 100,
+      mapCurrentCenter: null,
+      countyList: [
+        "Addison",
+        "Bennington",
+        "Caledonia",
+        "Chittenden",
+        "Essex",
+        "Franklin",
+        "Grand Isle",
+        "Lamoille",
+        "Orange",
+        "Orleans",
+        "Rutland",
+        "Washington",
+        "Windham",
+        "Windsor"
+      ]
     }
     this.handleStart = this.handleStart.bind(this);
     this.handleGiveUp = this.handleGiveUp.bind(this);
     this.handleCountySelect = this.handleCountySelect.bind(this);
     this.goUp = this.goUp.bind(this);
     this.goLeft = this.goLeft.bind(this);
+    this.goHome = this.goHome.bind(this);
     this.goRight = this.goRight.bind(this);
     this.goDown = this.goDown.bind(this);
   }
@@ -33,13 +50,13 @@ class Page extends React.Component {
       randomLocation: findVermontLocation(),
       infoLoaded: false,
       countyGuess: null,
-      mapCurrentCenter: null
+      mapCurrentCenter: null,
+      score: 100
     })
   }
 
   componentDidUpdate () {
     if (!this.state.infoLoaded) {
-      console.log(this.state.randomLocation)
       fetch(`http://nominatim.openstreetmap.org/reverse.php?format=json&lat=${this.state.randomLocation.lat}&lon=${this.state.randomLocation.lng}`)
         .then(response => response.json())
         .then(object => findLocationInfo(object, this.state.randomLocation))
@@ -61,47 +78,58 @@ class Page extends React.Component {
   handleCountySelect () {
     let countySelect = document.getElementById("county-select");
     let guessWithCounty = countySelect.value + " County";
-    this.setState({countyGuess: countySelect.value, gameStarted: false})
+    this.setState({countyGuess: countySelect.value})
     if (guessWithCounty===this.state.randomLocation.county) {
+      this.setState({gameStarted: false})
+    } else {
       let oldScore = this.state.score;
-      this.setState({score: oldScore + 10})
+      let oldCountyList = this.state.countyList;
+      this.setState({score: oldScore - 10, countyList: setDifference(oldCountyList, [countySelect.value])})
     }
   }
 
   goUp () {
     let newCenter = {
       lng: this.state.mapCurrentCenter.lng,
-      lat: this.state.mapCurrentCenter.lat + .001
+      lat: this.state.mapCurrentCenter.lat + .0012
     }
-
-    this.setState({mapCurrentCenter: newCenter})
+    let oldScore = this.state.score;
+    this.setState({mapCurrentCenter: newCenter, score: oldScore - 1})
   }
 
   goLeft () {
     let newCenter = {
-      lng: this.state.mapCurrentCenter.lng - .001,
+      lng: this.state.mapCurrentCenter.lng - .0012,
       lat: this.state.mapCurrentCenter.lat
     }
+    let oldScore = this.state.score;
+    this.setState({mapCurrentCenter: newCenter, score: oldScore - 1})
+  }
 
+  goHome () {
+    let newCenter = {
+      lng: this.state.randomLocation.lng,
+      lat: this.state.randomLocation.lat
+    }
     this.setState({mapCurrentCenter: newCenter})
   }
 
   goRight () {
     let newCenter = {
-      lng: this.state.mapCurrentCenter.lng + .001,
+      lng: this.state.mapCurrentCenter.lng + .0012,
       lat: this.state.mapCurrentCenter.lat
     }
-
-    this.setState({mapCurrentCenter: newCenter})
+    let oldScore = this.state.score;
+    this.setState({mapCurrentCenter: newCenter, score: oldScore - 1})
   }
 
   goDown () {
     let newCenter = {
       lng: this.state.mapCurrentCenter.lng,
-      lat: this.state.mapCurrentCenter.lat - .001
+      lat: this.state.mapCurrentCenter.lat - .0012
     }
-
-    this.setState({mapCurrentCenter: newCenter})
+    let oldScore = this.state.score;
+    this.setState({mapCurrentCenter: newCenter, score: oldScore - 1})
   }
 
   render() {
@@ -114,6 +142,9 @@ class Page extends React.Component {
               infoLoaded={this.state.infoLoaded}
               randomLocation={this.state.randomLocation}
               mapCurrentCenter={this.state.mapCurrentCenter}
+              upGiven={this.state.upGiven}
+              countyGuess={this.state.countyGuess}
+              gameStarted={this.state.gameStarted}
             />
             <div id="page-bottom">
               <div id="buttons-info">
@@ -123,17 +154,20 @@ class Page extends React.Component {
                   upGiven={this.state.upGiven}
                   handleGiveUp={this.handleGiveUp}
                   handleCountySelect={this.handleCountySelect}
+                  countyList={this.state.countyList}
                 />
                 <Info
                   upGiven={this.state.upGiven}
                   randomLocation={this.state.randomLocation}
                   score={this.state.score}
                   countyGuess={this.state.countyGuess}
+                  gameStarted={this.state.gameStarted}
                 />
               </div>
               <Controls 
                 goUp={this.goUp}
                 goLeft={this.goLeft}
+                goHome={this.goHome}
                 goRight={this.goRight}
                 goDown={this.goDown}
                 gameStarted={this.state.gameStarted}
@@ -169,18 +203,22 @@ class Map extends React.Component {
       this.map.keyboard.disable();
       this.map.dragging.disable();
 
-      L.geoJSON(countyData).addTo(this.map);
+      L.geoJSON(borderData).addTo(this.map);
+      this.polyline = L.polyline([[0, 0],[0, 0]], {color: 'red', dashArray: '4'}).addTo(this.map);
     }
   }
 
   componentDidUpdate() {
     if (this.props.infoLoaded) {
-      console.log(this.props.mapCurrentCenter)
       this.map.setView(new L.LatLng(this.props.mapCurrentCenter.lat, this.props.mapCurrentCenter.lng), 18);
       this.marker = L.marker([this.props.randomLocation.lat, this.props.randomLocation.lng]).addTo(this.map)
-
-      var countyOutlines = L.geoJSON(countyData);
-      this.map.removeLayer(countyOutlines);
+      this.polyline.setLatLngs([
+        [this.props.randomLocation.lat, this.props.randomLocation.lng],
+        [this.props.mapCurrentCenter.lat, this.props.mapCurrentCenter.lng]
+      ])
+    }
+    if (this.props.upGiven || (this.props.countyGuess && !this.props.gameStarted)) {
+      this.map.setView(new L.LatLng(this.props.randomLocation.lat, this.props.randomLocation.lng), 8);
     }
   }
 
@@ -195,6 +233,19 @@ class Buttons extends React.Component {
   showDialog() {
     let guessDialog = document.getElementById("guess-dialog");
     guessDialog.showModal();
+  }
+
+  listTheCounties (counties) {
+    let i = 0;
+    let listItems = Array();
+    counties.forEach((county) => {
+      i++;
+      listItems.push(<option key={i}>{county}</option>)
+    })
+    return (
+      <select id="county-select">{listItems}</select>
+    );
+
   }
 
   render() {
@@ -214,24 +265,10 @@ class Buttons extends React.Component {
           <button id="guess" onClick={this.showDialog}>guess!</button>
           <dialog id="guess-dialog">
             <form method="dialog">
-              <p><label>Select a county
-                <select id="county-select">
-                  <option>Addison</option>
-                  <option>Bennington</option>
-                  <option>Caledonia</option>
-                  <option>Chittenden</option>
-                  <option>Essex</option>
-                  <option>Franklin</option>
-                  <option>Grand Isle</option>
-                  <option>Lamoille</option>
-                  <option>Orange</option>
-                  <option>Orleans</option>
-                  <option>Rutland</option>
-                  <option>Washington</option>
-                  <option>Windham</option>
-                  <option>Windsor</option>
-                </select>
-              </label></p>
+              <p><label>Select a county</label></p>
+                <div>
+                 {this.listTheCounties(this.props.countyList)} 
+                </div>
               <menu>
                 <button value="cancel">Cancel</button>
                 <button id="confirmBtn" value="default" onClick={this.props.handleCountySelect}>OK</button>
@@ -273,15 +310,25 @@ class Info extends React.Component {
         } else {
           return (
             <div id="info">
-              <p>Latitude: {this.props.randomLocation.lat}</p>
-              <p>Longitude: {this.props.randomLocation.lng}</p>
-              <p>County: {this.props.randomLocation.county}</p>
-              <p>Municipality: {this.props.randomLocation["municipalityName"]}</p>
-              <p>You were incorrect :(</p>
+              <p>Latitude: ?</p>
+              <p>Longitude: ?</p>
+              <p>County: ?</p>
+              <p>Municipality: ?</p>
+              <p>You were incorrect :( Try again!</p>
               <p>Score: {this.props.score}</p>
             </div>
           )
         }
+    } else if (!this.props.gameStarted) {
+      return (
+        <div id="info">
+          <p>Latitude: ?</p>
+          <p>Longitude: ?</p>
+          <p>County: ?</p>
+          <p>Municipality: ?</p>
+          <p>Score: -</p>
+        </div>
+      )
     } else {
       return (
         <div id="info">
@@ -304,6 +351,7 @@ class Controls extends React.Component {
           <h2 style={{gridArea: "title"}}>Controls:</h2>
           <button id="up" onClick={this.props.goUp} style={{gridArea: "up"}}>↑</button>
           <button id="left" onClick={this.props.goLeft} style={{gridArea: "left"}}>←</button>
+          <button id="home" onClick={this.props.goHome} style={{gridArea: "home"}}>H</button>
           <button id="right" onClick={this.props.goRight} style={{gridArea: "right"}}>→</button>
           <button id="down" onClick={this.props.goDown} style={{gridArea: "down"}}>↓</button>
         </div>
@@ -375,4 +423,24 @@ function findLocationInfo(object, location) {
   console.log("I have selected a location with longitude " + location.lng + " and latitude " + location.lat +
     " in the " + location.municipalityType + " of " + location.municipalityName + ", " + location.county + ", " + location.state + ".");
   return location;
+}
+
+function setDifference(minuend, subtrahend) {
+  if (typeof(minuend)!=='object' || typeof(subtrahend)!=='object') {
+    throw 'setDifference needs objects as arguments'
+  };
+let returnArray = []
+let flag = 0;
+for (let i in minuend) {
+  for (let j in subtrahend) {
+    if (minuend[i]===subtrahend[j]) {
+      flag = 1;
+    }
+  }
+  if (flag===0) {
+    returnArray.push(minuend[i]);
+  }
+  flag = 0;
+}
+return returnArray;
 }
