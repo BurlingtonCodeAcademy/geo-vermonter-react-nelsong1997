@@ -31,7 +31,9 @@ class Page extends React.Component {
         "Washington",
         "Windham",
         "Windsor"
-      ]
+      ],
+      highScores: null,
+      playerName: ""
     }
     this.handleStart = this.handleStart.bind(this);
     this.handleGiveUp = this.handleGiveUp.bind(this);
@@ -41,6 +43,7 @@ class Page extends React.Component {
     this.goHome = this.goHome.bind(this);
     this.goRight = this.goRight.bind(this);
     this.goDown = this.goDown.bind(this);
+    this.handleNameChange = this.handleNameChange.bind(this);
   }
 
   handleStart () {
@@ -51,12 +54,35 @@ class Page extends React.Component {
       infoLoaded: false,
       countyGuess: null,
       mapCurrentCenter: null,
-      score: 100
+      score: 100,
+      countyList: [
+        "Addison",
+        "Bennington",
+        "Caledonia",
+        "Chittenden",
+        "Essex",
+        "Franklin",
+        "Grand Isle",
+        "Lamoille",
+        "Orange",
+        "Orleans",
+        "Rutland",
+        "Washington",
+        "Windham",
+        "Windsor"
+      ]
     })
   }
 
+  async componentDidMount () {
+    const response = await fetch("/scores");
+    const scoreObj = await response.json();
+    console.log("The scores are: " + JSON.stringify(scoreObj));
+    this.setState({highScores: scoreObj})
+  }
+
   componentDidUpdate () {
-    if (!this.state.infoLoaded) {
+    if (!this.state.infoLoaded && this.state.randomLocation) {
       fetch(`http://nominatim.openstreetmap.org/reverse.php?format=json&lat=${this.state.randomLocation.lat}&lon=${this.state.randomLocation.lng}`)
         .then(response => response.json())
         .then(object => findLocationInfo(object, this.state.randomLocation))
@@ -72,7 +98,37 @@ class Page extends React.Component {
   }
 
   handleGiveUp () {
-    this.setState({upGiven: true, gameStarted: false})
+    this.setState({
+      upGiven: true, 
+      gameStarted: false,
+      playerName: ""
+    })
+  }
+
+  handleNameChange (evt) {
+    this.setState({
+      playerName: evt.target.value
+    });
+  }
+
+  async submitScore () {
+    console.log(`Scores are ${JSON.stringify(this.state.highScores)}`)
+    let { highScores } = this.state;
+    highScores.push({
+      "score": this.state.score,
+      "scorer": this.state.playerName
+    })
+    this.setState({highScores: highScores})
+    const response = await fetch("/scores", {
+      method: "POST",
+      headers:{
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(highScores)
+    });
+    if (response.status === 201) {
+      console.log("score created")
+    }
   }
 
   handleCountySelect () {
@@ -80,7 +136,8 @@ class Page extends React.Component {
     let guessWithCounty = countySelect.value + " County";
     this.setState({countyGuess: countySelect.value})
     if (guessWithCounty===this.state.randomLocation.county) {
-      this.setState({gameStarted: false})
+      this.submitScore()
+      this.setState({gameStarted: false, playerName: "", countyGuess: null})
     } else {
       let oldScore = this.state.score;
       let oldCountyList = this.state.countyList;
@@ -155,6 +212,8 @@ class Page extends React.Component {
                   handleGiveUp={this.handleGiveUp}
                   handleCountySelect={this.handleCountySelect}
                   countyList={this.state.countyList}
+                  playerName={this.state.playerName}
+                  handleNameChange={this.handleNameChange}
                 />
                 <Info
                   upGiven={this.state.upGiven}
@@ -177,6 +236,9 @@ class Page extends React.Component {
           <div>
             <img src="./map.jpg" alt="Map of Vermont's counties"></img>
           </div>
+          <Scores 
+            highScores={this.state.highScores}
+          />
         </div>
       </div>
     )
@@ -239,8 +301,8 @@ class Buttons extends React.Component {
     let i = 0;
     let listItems = Array();
     counties.forEach((county) => {
-      i++;
       listItems.push(<option key={i}>{county}</option>)
+      i++;
     })
     return (
       <select id="county-select">{listItems}</select>
@@ -249,10 +311,20 @@ class Buttons extends React.Component {
   }
 
   render() {
-    if (!this.props.gameStarted) {
+    if (!this.props.gameStarted && this.props.playerName!=="") {
       return (
         <div id="buttons">
+          <input type="text" onChange={this.props.handleNameChange}></input>
           <button id="start" onClick={this.props.handleStart}>start game</button>
+          <button id="give-up" style={{opacity: .5}}>give up!</button>
+          <button id="guess" style={{opacity: .5}}>guess!</button>
+        </div>
+      )
+    } else if (!this.props.gameStarted && this.props.playerName==="") {
+      return (
+        <div id="buttons">
+          <input type="text" placeholder="Your name" onChange={this.props.handleNameChange}></input>
+          <button id="start" style={{opacity: .5}}>start game</button>
           <button id="give-up" style={{opacity: .5}}>give up!</button>
           <button id="guess" style={{opacity: .5}}>guess!</button>
         </div>
@@ -260,6 +332,9 @@ class Buttons extends React.Component {
     } else {
       return (
         <div id="buttons">
+          <div id="player-name">
+           <a>Player: {this.props.playerName}</a>
+          </div>
           <button id="start" style={{opacity: .5}}>start game</button>
           <button id="give-up" onClick={this.props.handleGiveUp}>give up!</button>
           <button id="guess" onClick={this.showDialog}>guess!</button>
@@ -362,6 +437,40 @@ class Controls extends React.Component {
   }
 }
 
+class Scores extends React.Component {
+  listTheScores (scores) {
+    let i = 0;
+    let allOrderedScores = this.orderScores(scores)
+    let topTenScores = allOrderedScores.slice(0, 10)
+    let listItems = Array();
+    topTenScores.forEach((score) => {
+      listItems.push(<li key={i}>{score.scorer}: {score.score}</li>)
+      i++;
+    })
+    return (
+      <ol id="county-select">{listItems}</ol>
+    );
+  }
+
+  orderScores(scores) {
+    scores.sort(function(a, b){return b.score - a.score})
+    return scores;
+  }
+
+  render() {
+    if (this.props.highScores) {
+      return (
+        <div id="scores">
+          <h2>High Scores:</h2>
+          {this.listTheScores(this.props.highScores)}
+        </div>
+      )
+    } else {
+      return null;
+    }
+  }
+}
+
 ReactDOM.render(
   <Page />,
   document.getElementById('root')
@@ -374,18 +483,14 @@ function randomNumber(min, max) {
 
 function findVermontLocation () {
   let location = randomInRectangle();
-  let i = 0;
-  while (!withinVermont(location) && i<100) {
+  let i = 1;
+  while (!withinVermont(location)) {
     console.log(location.lng + ', ' + location.lat + " is outside of vermont, finding a new location...")
     location = randomInRectangle();
     i++;
   }
-  if (!withinVermont(location)) {
-    console.log("I failed to find a location within Vermont's borders :(")
-  } else {
-    console.log("After " + (i + 1) + " try(ies)...")
-    return location;
-  }
+  console.log("After " + (i + 1) + " try(ies)...")
+  return location;
 }
 
 function randomInRectangle() { //"rectangle" meaning a rectangle that encloses all of VT
