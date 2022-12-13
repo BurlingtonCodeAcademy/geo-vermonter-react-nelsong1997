@@ -4,7 +4,7 @@
   "description": "A geographic guessing game in Vermont",
   "dependencies": {
     "@mapbox/leaflet-pip": "^1.1.0",
-    "express": "^4.17.1",
+    "express": "^4.17.3",
     "leaflet": "^1.5.1",
     "node-static": "^0.7.11",
     "react": "^16.8.6",
